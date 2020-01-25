@@ -1,0 +1,6 @@
+{
+  "Parameters" : {
+    "Stage" : "prod",
+    "InstanceCount": "2"
+  }
+}

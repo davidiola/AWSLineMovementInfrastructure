@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Cfn Template for CodeDeploy app'
+Parameters:
+  Stage:
+    AllowedValues:
+      - test
+      - prod
+    ConstraintDescription: Must be a valid Stage
+    Description: Application Stage
+    Type: String
+  InstanceCount:
+    AllowedValues:
+      - 1
+      - 2
+    ConstraintDescription: Valid instance count value
+    Default: 1
+    Type: String
+
+Resources:
+  ElasticsearchDomain:
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      DomainName: !Ref 'Stage'
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: "true"
+        InstanceCount: "2"
+        ZoneAwarenessEnabled: "true"
+        InstanceType: "m3.medium.elasticsearch"
+        DedicatedMasterType: "m3.medium.elasticsearch"
+        DedicatedMasterCount: "3"
+      EBSOptions:
+        EBSEnabled: true
+        Iops: 0
+        VolumeSize: 20
+        VolumeType: "gp2"
+      SnapshotOptions:
+        AutomatedSnapshotStartHour: "0"
+      AccessPolicies:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              AWS: "arn:aws:iam::040176844224:user/ioladavi"
+            Action: "es:*"
+            Resource: "arn:aws:es:us-east-1:040176844224:domain/test/*"
+      AdvancedOptions:
+        rest.action.multi.allow_explicit_index: "true"
