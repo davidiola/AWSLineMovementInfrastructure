@@ -367,35 +367,22 @@ Mappings:
       HVMG2: NOT_SUPPORTED
 
 Resources:
-  ElasticsearchDomain:
-    Type: AWS::Elasticsearch::Domain
+  GameEventsTable:
+    Type: AWS::DynamoDB::Table
     Properties:
-      DomainName: !Ref 'Stage'
-      ElasticsearchClusterConfig:
-        DedicatedMasterEnabled: "true"
-        InstanceCount: "2"
-        ZoneAwarenessEnabled: "true"
-        InstanceType: "m3.medium.elasticsearch"
-        DedicatedMasterType: "m3.medium.elasticsearch"
-        DedicatedMasterCount: "3"
-      EBSOptions:
-        EBSEnabled: true
-        Iops: 0
-        VolumeSize: 20
-        VolumeType: "gp2"
-      SnapshotOptions:
-        AutomatedSnapshotStartHour: "0"
-      AccessPolicies:
-        Version: "2012-10-17"
-        Statement:
-          -
-            Effect: "Allow"
-            Principal:
-              AWS: "arn:aws:iam::040176844224:user/ioladavi"
-            Action: "es:*"
-            Resource: "arn:aws:es:us-east-1:040176844224:domain/test/*"
-      AdvancedOptions:
-        rest.action.multi.allow_explicit_index: "true"
+      TableName:
+        Fn::Sub: '${AWS::StackName}-GameEventsTable'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: GameEventIdentifier
+          AttributeType: S
+        - AttributeName: Timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: GameEventIdentifier
+          KeyType: HASH
+        - AttributeName: Timestamp
+          KeyType: RANGE
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -447,3 +434,11 @@ Outputs:
       Fn::GetAtt:
         - EC2Instance
         - PublicIp
+  GameEventsTableName:
+    Value:
+      Ref: GameEventsTable
+  GameEventsTableArn:
+    Value:
+      Fn::GetAtt:
+        - GameEventsTable
+        - Arn

@@ -208,7 +208,7 @@ Resources:
             Statement:
               - Action:
                   - 'ec2:*'
-                  - 'es:*'
+                  - 'dynamodb:*'
                 Effect: Allow
                 Resource: '*'
 
