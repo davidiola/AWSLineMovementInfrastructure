@@ -207,19 +207,6 @@ Resources:
                 RoleArn: !GetAtt [CFNRole, Arn]
                 StackName: !Ref ProdStackName
               RunOrder: '3'
-        - Name: CodeDeployStage
-          Actions:
-            - Name: CodeDeploy
-              ActionTypeId:
-                Category: Deploy
-                Owner: AWS
-                Version: 1
-                Provider: CodeDeploy
-              InputArtifacts:
-                - Name: LineMovementService
-              Configuration:
-                ApplicationName: !Ref Application
-                DeploymentGroupName: DeploymentGroupOne
 
   Application:
     Type: "AWS::CodeDeploy::Application"
@@ -258,6 +245,7 @@ Resources:
                   - 'iam:*'
                   - 'lambda:*'
                   - 's3:*'
+                  - 'events:*'
                 Effect: Allow
                 Resource: '*'
 
@@ -277,30 +265,6 @@ Resources:
       ManagedPolicyArns:
         - 'arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole'
 
-  EC2InstanceProfile:
-    Type: 'AWS::IAM::InstanceProfile'
-    Properties:
-      InstanceProfileName: EC2InstanceProfile
-      Path: '/'
-      Roles:
-        - !Ref EC2InstanceIAMRole
-  EC2InstanceIAMRole:
-    Type: 'AWS::IAM::Role'
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - 'ec2.amazonaws.com'
-            Action:
-              - 'sts:AssumeRole'
-      Path: '/'
-      ManagedPolicyArns:
-        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy'
-        - 'arn:aws:iam::aws:policy/CloudWatchFullAccess'
-        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
   LambdaRole:
     Type: AWS::IAM::Role
     Properties:
