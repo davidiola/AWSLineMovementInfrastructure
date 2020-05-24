@@ -1,13 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: >
-  AWS CloudFormation Sample Template Continuous Delievery: This template
-  builds an AWS CodePipeline pipeline that implements a continuous delivery release
-  process for AWS CloudFormation stacks. Submit a CloudFormation source artifact
-  to an Amazon S3 location before building the pipeline. The pipeline uses the
-  artifact to automatically create stacks and change sets.
-  **WARNING** This template creates an Amazon EC2 instance. You will be billed
-  for the AWS resources used when you create a stack using this template.
+Description: AWSLineMovementServiceInfrastructure Pipeline CloudFormation definition
 
 Parameters:
   PipelineName:
@@ -23,7 +16,7 @@ Parameters:
     Description: The file name of the source artifact, such as myfolder/myartifact.zip
     Type: String
   TemplateFileName:
-    Default: base-cfn-template.yaml
+    Default: base-cfn-template.yml
     Description: The file name of the CloudFormation template
     Type: String
   TestStackName:
@@ -49,6 +42,17 @@ Parameters:
   Email:
     Default: davidaldeniola@gmail.com
     Description: The email address where CodePipeline sends pipeline notifications
+    Type: String
+  GithubOwner:
+    Default: davidiola
+    Description: 'The owner of the GitHub repository.'
+    Type: String
+  GithubOAuthToken:
+    Description: 'The OAuthToken of the GitHub user.'
+    Type: String
+  GithubRepo:
+    Default: AWSLineMovementService
+    Description: 'The GitHub repository.'
     Type: String
 
 Metadata:
@@ -98,7 +102,7 @@ Resources:
       Name: !Ref 'PipelineName'
       RoleArn: !GetAtt [PipelineRole, Arn]
       Stages:
-        - Name: S3Source
+        - Name: S3AndGithubSources
           Actions:
             - Name: TemplateSource
               ActionTypeId:
@@ -112,6 +116,19 @@ Resources:
               OutputArtifacts:
                 - Name: TemplateSource
               RunOrder: '1'
+            - Name: Github
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              Configuration:
+                Owner: !Ref GithubOwner
+                Repo: !Ref GithubRepo
+                Branch: master
+                OAuthToken: !Ref GithubOAuthToken
+              OutputArtifacts:
+                - Name: LineMovementService
         - Name: TestStage
           Actions:
             - Name: CreateStack
@@ -190,6 +207,35 @@ Resources:
                 RoleArn: !GetAtt [CFNRole, Arn]
                 StackName: !Ref ProdStackName
               RunOrder: '3'
+        - Name: CodeDeployStage
+          Actions:
+            - Name: CodeDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: CodeDeploy
+              InputArtifacts:
+                - Name: LineMovementService
+              Configuration:
+                ApplicationName: !Ref Application
+                DeploymentGroupName: DeploymentGroupOne
+
+  Application:
+    Type: "AWS::CodeDeploy::Application"
+    Properties:
+      ApplicationName: CodeDeployApplication
+  DeploymentGroup:
+    Type: "AWS::CodeDeploy::DeploymentGroup"
+    Properties:
+      ApplicationName: CodeDeployApplication
+      DeploymentGroupName: DeploymentGroupOne
+      Ec2TagFilters:
+        - Key: DeploymentGroupOne
+          Type: KEY_AND_VALUE
+          Value: !Ref AWS::StackName
+      ServiceRoleArn: !Sub '${CodeDeployIAMRole.Arn}'
+
   CFNRole:
     Type: AWS::IAM::Role
     Properties:
@@ -209,9 +255,74 @@ Resources:
               - Action:
                   - 'ec2:*'
                   - 'dynamodb:*'
+                  - 'iam:*'
+                  - 'lambda:*'
+                  - 's3:*'
                 Effect: Allow
                 Resource: '*'
 
+  CodeDeployIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'codedeploy.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole'
+
+  EC2InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      InstanceProfileName: EC2InstanceProfile
+      Path: '/'
+      Roles:
+        - !Ref EC2InstanceIAMRole
+  EC2InstanceIAMRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'ec2.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy'
+        - 'arn:aws:iam::aws:policy/CloudWatchFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: lambda-role
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSLambdaExecute'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess'
+        - 'arn:aws:iam::aws:policy/CloudWatchFullAccess'
+  LambdaSourceCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: awslinemovementservice-lambda-src-code
   PipelineRole:
     Type: AWS::IAM::Role
     Properties:
@@ -230,6 +341,7 @@ Resources:
             Statement:
               - Action:
                   - 's3:*'
+                  - 'codedeploy:*'
                   - 'cloudformation:CreateStack'
                   - 'cloudformation:DescribeStacks'
                   - 'cloudformation:DeleteStack'
@@ -241,5 +353,12 @@ Resources:
                   - 'cloudformation:SetStackPolicy'
                   - 'iam:PassRole'
                   - 'sns:Publish'
+                  - 'lambda:*'
                 Effect: Allow
                 Resource: '*'
+Outputs:
+  LambdaRoleArn:
+    Description: LambdaRole Arn Export
+    Value: !GetAtt LambdaRole.Arn
+    Export:
+      Name: "LambdaRoleArnExport"

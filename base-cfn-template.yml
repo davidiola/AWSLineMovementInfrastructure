@@ -15,6 +15,10 @@ Parameters:
     ConstraintDescription: Valid instance count value
     Default: 1
     Type: String
+  PipelineStackName:
+    Default: AWSLineMovementInfrastructurePipelineStack
+    Type: String
+    Description: 'The name of the associated Pipeline stack created'
   KeyName:
     Default: AWSLineMovement
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
@@ -24,62 +28,6 @@ Parameters:
     Description: AWSLineMovementService EC2 instance type
     Type: String
     Default: t2.small
-    AllowedValues:
-      - t1.micro
-      - t2.nano
-      - t2.micro
-      - t2.small
-      - t2.medium
-      - t2.large
-      - m1.small
-      - m1.medium
-      - m1.large
-      - m1.xlarge
-      - m2.xlarge
-      - m2.2xlarge
-      - m2.4xlarge
-      - m3.medium
-      - m3.large
-      - m3.xlarge
-      - m3.2xlarge
-      - m4.large
-      - m4.xlarge
-      - m4.2xlarge
-      - m4.4xlarge
-      - m4.10xlarge
-      - c1.medium
-      - c1.xlarge
-      - c3.large
-      - c3.xlarge
-      - c3.2xlarge
-      - c3.4xlarge
-      - c3.8xlarge
-      - c4.large
-      - c4.xlarge
-      - c4.2xlarge
-      - c4.4xlarge
-      - c4.8xlarge
-      - g2.2xlarge
-      - g2.8xlarge
-      - r3.large
-      - r3.xlarge
-      - r3.2xlarge
-      - r3.4xlarge
-      - r3.8xlarge
-      - i2.xlarge
-      - i2.2xlarge
-      - i2.4xlarge
-      - i2.8xlarge
-      - d2.xlarge
-      - d2.2xlarge
-      - d2.4xlarge
-      - d2.8xlarge
-      - hi1.4xlarge
-      - hs1.8xlarge
-      - cr1.8xlarge
-      - cc2.8xlarge
-      - cg1.4xlarge
-    ConstraintDescription: must be a valid EC2 instance type.
   SSHLocation:
     Description: The IP address range that can be used to SSH to the EC2 instances
     Type: String
@@ -383,9 +331,11 @@ Resources:
           KeyType: HASH
         - AttributeName: Timestamp
           KeyType: RANGE
+
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
+      IamInstanceProfile: EC2InstanceProfile
       InstanceType:
         Ref: InstanceType
       SecurityGroups:
@@ -400,6 +350,15 @@ Resources:
               - AWSInstanceType2Arch
               - Ref: InstanceType
               - Arch
+      Tags:
+        - Key: DeploymentGroupOne
+          Value: !Ref PipelineStackName
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -x
+          sudo su -
+          yum update -y && yum install -y ruby wget && wget https://aws-codedeploy-us-east-1.s3.amazonaws.com/latest/install && chmod +x ./install && ./install auto && service codedeploy-agent start
+          /opt/aws/bin/cfn-signal -e $? --region ${AWS::Region} --stack ${AWS::StackName} --resource EC2Instance
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -411,29 +370,21 @@ Resources:
           CidrIp:
             Ref: SSHLocation
 
+  AWSLineMovementServiceLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: AWSLineMovementServiceLambda
+      Handler: com.awslinemovement.service.handler.LambdaEntryPoint
+      MemorySize: 1024
+      Role:
+        Fn::ImportValue: "LambdaRoleArnExport"
+      Code:
+        S3Bucket: "awslinemovementservice-lambda-src-code"
+        S3Key: "LambdaCode"
+      Runtime: java11
+      Timeout: 100
+
 Outputs:
-  InstanceId:
-    Description: InstanceId of the newly created EC2 instance
-    Value:
-      Ref: EC2Instance
-  AZ:
-    Description: Availability Zone of the newly created EC2 instance
-    Value:
-      Fn::GetAtt:
-        - EC2Instance
-        - AvailabilityZone
-  PublicDNS:
-    Description: Public DNSName of the newly created EC2 instance
-    Value:
-      Fn::GetAtt:
-        - EC2Instance
-        - PublicDnsName
-  PublicIP:
-    Description: Public IP address of the newly created EC2 instance
-    Value:
-      Fn::GetAtt:
-        - EC2Instance
-        - PublicIp
   GameEventsTableName:
     Value:
       Ref: GameEventsTable
