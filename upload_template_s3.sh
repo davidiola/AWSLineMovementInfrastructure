@@ -9,6 +9,7 @@ then
     rm cfn-template.zip
     aws s3api put-object --bucket aws-line-movement-infrastructure --key pipeline/pipeline.yml --body pipeline.yml
     aws s3api put-object --bucket awslinemovementservice-lambda-src-code --key LambdaCode --region us-east-1 --body ../AWSLineMovementService/build/distributions/AWSLineMovementService-1.0-SNAPSHOT.zip
+    aws s3 sync ../line-movement-static-website/build/ s3://aws-linemovement-static-website/
   else
     echo "CFN validation for base template failed"
   fi

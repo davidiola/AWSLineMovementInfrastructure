@@ -287,6 +287,24 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: awslinemovementservice-lambda-src-code
+  StaticWebsiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: aws-linemovement-static-website
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: "index.html"
+  StaticWebsiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: aws-linemovement-static-website
+      PolicyDocument:
+        Statement:
+          - Action: 's3:GetObject'
+            Effect: Allow
+            Principal: '*'
+            Resource: 'arn:aws:s3:::aws-linemovement-static-website/*'
+        Version: '2012-10-17'
   PipelineRole:
     Type: AWS::IAM::Role
     Properties:

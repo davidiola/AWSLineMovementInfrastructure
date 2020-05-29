@@ -34,9 +34,9 @@ Resources:
   AWSLineMovementServiceLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: AWSLineMovementServiceLambda
+      FunctionName: !Sub '${AWS::StackName}-AWSLineMovementServiceLambda'
       Handler: com.awslinemovement.service.handler.LambdaEntryPoint
-      MemorySize: 1024
+      MemorySize: 512
       Role:
         Fn::ImportValue: "LambdaRoleArnExport"
       Code:
