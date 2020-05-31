@@ -246,6 +246,7 @@ Resources:
                   - 'lambda:*'
                   - 's3:*'
                   - 'events:*'
+                  - 'apigateway:*'
                 Effect: Allow
                 Resource: '*'
 
