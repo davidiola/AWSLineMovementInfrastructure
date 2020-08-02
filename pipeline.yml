@@ -288,6 +288,8 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: awslinemovementservice-lambda-src-code
+      VersioningConfiguration:
+        Status: Enabled
   StaticWebsiteBucket:
     Type: AWS::S3::Bucket
     Properties:
